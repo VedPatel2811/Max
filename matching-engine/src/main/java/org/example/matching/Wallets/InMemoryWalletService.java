@@ -59,12 +59,24 @@ public void releaseReservation(String orderId){
             w.releaseReservedShares(INSTRUMENT,r.getReservedShares());
 
         }
+    }
 
+    @Override
+    public void creditUserShares(String userId, long shares) {
+        Wallet w = ensureWallet(userId);
+        w.addAvailableShares(INSTRUMENT, shares);
+    }
 
-}
+    @Override
+    public void creditUserCash(String userId, long cash) {
+        Wallet w = ensureWallet(userId);
+        w.addAvailableCash(cash);
+    }
 
-
-
+    @Override
+    public Wallet getWallet(String userId) {
+        return wallets.get(userId);
+    }
 
     @Override
     public void settleTrade(Trade trade) {
