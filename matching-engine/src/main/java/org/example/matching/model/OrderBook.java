@@ -127,7 +127,7 @@ public class OrderBook {
             // the long will be price do .key() is askprice of that node
 
             if(askPrice> buy.getPrice()){
-                System.out.println("here it is ");
+                System.out.println("your order will fullfill once it matches the appropriate seller ");
                         break;
             }
             Deque<Order> queue = bestAskEntry.getValue();
