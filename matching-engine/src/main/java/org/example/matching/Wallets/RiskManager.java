@@ -5,14 +5,23 @@ import org.example.matching.model.Order;
 import org.example.matching.orderbook.OrderRepository;
 import org.springframework.stereotype.Service;
 
-@Service @AllArgsConstructor
+@Service
 public class RiskManager {
 
     private final WalletService walletService;
     private final OrderRepository orderRepository; // 1. Add the field
-//    public RiskManager(WalletService walletService) {
-//        this.walletService = walletService;
-//    }
+
+    // No-arg constructor for Main.java usage
+    public RiskManager() {
+        this.walletService = null;
+        this.orderRepository = null;
+    }
+
+    // Constructor for dependency injection
+    public RiskManager(WalletService walletService, OrderRepository orderRepository) {
+        this.walletService = walletService;
+        this.orderRepository = orderRepository;
+    }
 
 
     public boolean checkAndReserve(Order order) {
