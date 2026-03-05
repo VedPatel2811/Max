@@ -2,19 +2,39 @@ package org.example.matching.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
-@Setter@Getter
+@Getter
+@Setter
 @AllArgsConstructor
-@RequiredArgsConstructor
+@NoArgsConstructor
 @ToString
 public class Trade {
-    String buyOrderId;
-    String sellOrderId;
-    long price;
-   long quantity;
-    long timestamp;
+    private String buyOrderId;
+    private String sellOrderId;
+    private long price;
+    private long quantity;
+    private long timestamp;
 
+    public String getBuyOrderId() {
+        return buyOrderId;
+    }
+
+    public String getSellOrderId() {
+        return sellOrderId;
+    }
+
+    public long getPrice() {
+        return price;
+    }
+
+    public long getQuantity() {
+        return quantity;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
 }
