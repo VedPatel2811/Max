@@ -25,26 +25,74 @@ public class LiquidBotService {
 
     public void updateMarketTrigger(String ticker) {
         MarketEvent event = marketManagmentService.getEventByTicker(ticker);
-        if (event == null) return;
+        if (event == null || event.getStatus() != org.example.matching.api.dto.enums.EventStatus.OPEN) {
+            // Don't provide liquidity for settled events
+            return;
+        }
 
         // 1. Get the displacement (starts at 0)
         long netSold = event.getVirtualNetSold().get();
         long L = event.getLiquidity();
 
         // 2. SIGMOID MATH (Guaranteed 50¢ if netSold is 0)
-        // Price = 100 / (1 + e^(-0 / L)) -> 100 / (1 + 1) = 50
         double exponent = (double) netSold / L;
         long fairPriceYes = (long) (100.0 / (1.0 + Math.exp(-exponent)));
-
         fairPriceYes = Math.max(1, Math.min(99, fairPriceYes));
         long fairPriceNo = 100 - fairPriceYes;
 
-        // 3. Update the Order Book
-        refreshBotOrders(event.getYesTicker(), fairPriceYes, true);
-        refreshBotOrders(event.getNoTicker(), fairPriceNo, false);
+        // 3. SMART BOT LOGIC - Only provide liquidity if there's insufficient natural liquidity
+        boolean needsLiquidity = shouldProvideLiquidity(ticker, fairPriceYes, fairPriceNo);
         
-        log.info("Bot updated prices for {}: YES {}¢, NO {}¢ (virtualNetSold: {})", 
-                ticker, fairPriceYes, fairPriceNo, netSold);
+        if (needsLiquidity) {
+            refreshBotOrders(event.getYesTicker(), fairPriceYes, true);
+            refreshBotOrders(event.getNoTicker(), fairPriceNo, false);
+            log.info("Bot providing liquidity for {}: YES {}¢, NO {}¢ (virtualNetSold: {})", 
+                    ticker, fairPriceYes, fairPriceNo, netSold);
+        } else {
+            // Step back - cancel bot orders when there's natural liquidity
+            matchingEngine.cancelAllOrdersForUser(BOT_ID, event.getYesTicker());
+            matchingEngine.cancelAllOrdersForUser(BOT_ID, event.getNoTicker());
+            log.info("Bot stepping back for {} - natural liquidity available", ticker);
+        }
+    }
+    
+    private boolean shouldProvideLiquidity(String ticker, long fairPriceYes, long fairPriceNo) {
+        // Get both order books for the event
+        String yesTicker = ticker.contains("_Y") ? ticker : ticker.replace("_N", "_Y");
+        String noTicker = ticker.contains("_N") ? ticker : ticker.replace("_Y", "_N");
+        
+        var yesBook = matchingEngine.getOrderBookForMarketData(yesTicker);
+        var noBook = matchingEngine.getOrderBookForMarketData(noTicker);
+        
+        boolean yesHasNaturalOrders = hasNaturalOrders(yesBook);
+        boolean noHasNaturalOrders = hasNaturalOrders(noBook);
+        
+        log.info("Liquidity check for {} - YES has natural: {}, NO has natural: {}", 
+                ticker, yesHasNaturalOrders, noHasNaturalOrders);
+        
+        // Only provide liquidity if there's insufficient natural liquidity on either side
+        // But also consider if there are ANY natural orders at all
+        boolean hasAnyNaturalOrders = yesHasNaturalOrders || noHasNaturalOrders;
+        
+        // Step back if there are natural orders, provide liquidity if market is empty
+        return !hasAnyNaturalOrders;
+    }
+    
+    private boolean hasNaturalOrders(org.example.matching.model.OrderBook book) {
+        if (book.getBids().isEmpty() && book.getAsks().isEmpty()) {
+            return false; // Empty book - need liquidity
+        }
+        
+        // Check if there are orders from users other than bot
+        boolean naturalBids = book.getBids().values().stream().anyMatch(orders -> 
+                orders.stream().anyMatch(order -> !order.getUserId().equals(BOT_ID)));
+        boolean naturalAsks = book.getAsks().values().stream().anyMatch(orders -> 
+                orders.stream().anyMatch(order -> !order.getUserId().equals(BOT_ID)));
+        
+        log.info("Order book check - Natural bids: {}, Natural asks: {}, Total bid levels: {}, Total ask levels: {}", 
+                naturalBids, naturalAsks, book.getBids().size(), book.getAsks().size());
+        
+        return naturalBids || naturalAsks;
     }
 
     // This is called by your OrderService AFTER a trade happens
@@ -71,9 +119,9 @@ public class LiquidBotService {
         // Cancel all existing bot orders for this ticker
         matchingEngine.cancelAllOrdersForUser(BOT_ID, ticker);
 
-        // Place new orders with 2-cent spread around fair price
-        long bidPrice = Math.max(1, fairPrice - 2);
-        long askPrice = Math.min(99, fairPrice + 2);
+        // Place new orders with 1-cent spread around fair price for better visibility
+        long bidPrice = Math.max(1, fairPrice - 1);
+        long askPrice = Math.min(99, fairPrice + 1);
 
         // Place bid order (buy from users)
         placeBotOrder(ticker, OrderSide.BUY, bidPrice, 500);

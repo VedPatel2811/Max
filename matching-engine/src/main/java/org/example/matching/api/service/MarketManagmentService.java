@@ -56,9 +56,10 @@ public class MarketManagmentService {
                 .questions(question)
                 .yesTicker(yesTicker)
                 .noTicker(noTicker)
-                .expiry(java.time.LocalDateTime.now().plusMinutes(minutesFromNow))
+                .expiry(LocalDateTime.now().plusMinutes(minutesFromNow))
                 .status(EventStatus.OPEN)
-                .liquidity(100000) // Default liquidity
+                .liquidity(10000) // Reduced liquidity for visible price movements
+                .virtualNetSold(new AtomicLong(0))
                 .build();
 
         events.put(id, event);
