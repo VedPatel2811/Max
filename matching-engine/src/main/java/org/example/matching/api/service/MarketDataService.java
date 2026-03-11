@@ -62,6 +62,6 @@ public class MarketDataService {
         List<Double> history = priceHistory.get(instrument);
         if (history.size() > 10) history.remove(history.size() - 1);
 
-        // ... (rest of your VWAP logic)
+        // ... (rest of  VWAP logic)
     }
 }
